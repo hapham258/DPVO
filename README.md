@@ -1,3 +1,28 @@
+Setup:
+```
+conda env create -f environment.yml
+conda activate dpvo_all
+wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip
+unzip eigen-3.4.0.zip -d thirdparty
+git submodule update --init --recursive
+pip install --no-build-isolation .
+wget https://www.dropbox.com/s/nap0u8zslspdwm4/models.zip && unzip models.zip
+
+mkdir Pangolin/build && cd Pangolin/build
+cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBUILD_PANGOLIN_FFMPEG=OFF -DBUILD_EXAMPLES=OFF
+make -j8
+make install
+cd ../../
+pip install --no-build-isolation ./DPViewer
+```
+Run:
+```
+export SLAM_DATASETS_PATH=$HOME/Documents/SLAM_Datasets
+export SLAM_TESTINGS_PATH=$HOME/Documents/SLAM_Testings
+python demo.py --imagedir=$SLAM_DATASETS_PATH/euroc/MH_01_easy/mav0/cam0/data/ --calib=calib/euroc.txt --stride=2 --plot --viz --opts LOOP_CLOSURE True
+python demo.py --imagedir=$SLAM_TESTINGS_PATH/zedx_mini/14/mav0/cam0/data/ --calib=calib/zedx_mini.txt --stride=2 --plot --viz --opts LOOP_CLOSURE True
+```
+
 # Deep Patch Visual Odometry/SLAM
 This repository contains the source code for our papers:
 

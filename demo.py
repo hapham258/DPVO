@@ -29,32 +29,44 @@ def run(cfg, network, imagedir, calib, stride=1, skip=0, viz=False, timeit=False
 
     if os.path.isdir(imagedir):
         reader = Process(target=image_stream, args=(queue, imagedir, calib, stride, skip))
+        print(f"[DPVO] using image_stream: {imagedir}")
     else:
         reader = Process(target=video_stream, args=(queue, imagedir, calib, stride, skip))
+        print(f"[DPVO] using video_stream: {imagedir}")
 
     reader.start()
 
+    nframes = 0
     while 1:
+        print(f"[DPVO] waiting for frame... processed={nframes}")
         (t, image, intrinsics) = queue.get()
-        if t < 0: break
+
+        if t < 0:
+            break
 
         image = torch.from_numpy(image).permute(2,0,1).cuda()
         intrinsics = torch.from_numpy(intrinsics).cuda()
 
         if slam is None:
             _, H, W = image.shape
+            print(f"[DPVO] initializing DPVO with image size {W}x{H}")
             slam = DPVO(cfg, network, ht=H, wd=W, viz=viz)
 
         with Timer("SLAM", enabled=timeit):
             slam(t, image, intrinsics)
+
+        nframes += 1
+        if nframes % 10 == 0:
+            print(f"[DPVO] processed {nframes} frames (last t={t})")
 
     reader.join()
 
     points = slam.pg.points_.cpu().numpy()[:slam.m]
     colors = slam.pg.colors_.view(-1, 3).cpu().numpy()[:slam.m]
 
-    return slam.terminate(), (points, colors, (*intrinsics, H, W))
-
+    result = slam.terminate()
+    print("[DPVO] finished")
+    return result, (points, colors, (*intrinsics, H, W))
 
 if __name__ == '__main__':
     import argparse

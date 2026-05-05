@@ -1,4 +1,4 @@
-name: dpvo
+name: dpvo_all
 channels:
   - pyg
   - pytorch
