@@ -1,6 +1,7 @@
 import os
-from multiprocessing import Process, Queue
 from pathlib import Path
+from itertools import chain
+from tqdm import tqdm
 
 import cv2
 import numpy as np
@@ -11,61 +12,48 @@ from evo.tools import file_interface
 from dpvo.config import cfg
 from dpvo.dpvo import DPVO
 from dpvo.plot_utils import plot_trajectory, save_output_for_COLMAP, save_ply
-from dpvo.stream import image_stream, video_stream
 from dpvo.utils import Timer
-
-SKIP = 0
-
-def show_image(image, t=0):
-    image = image.permute(1, 2, 0).cpu().numpy()
-    cv2.imshow('image', image / 255.0)
-    cv2.waitKey(t)
 
 @torch.no_grad()
 def run(cfg, network, imagedir, calib, stride=1, skip=0, viz=False, timeit=False):
+    #
+    calib = np.loadtxt(calib, delimiter=" ")
+    fx, fy, cx, cy = calib[:4]
+    K = np.eye(3)
+    K[0,0] = fx
+    K[0,2] = cx
+    K[1,1] = fy
+    K[1,2] = cy
 
+    #
+    img_exts = ["*.png", "*.jpeg", "*.jpg"]
+    image_list = sorted(chain.from_iterable(Path(imagedir).glob(e) for e in img_exts))[skip::stride]
+    assert os.path.exists(imagedir), imagedir
+
+    #
     slam = None
-    queue = Queue(maxsize=8)
-
-    if os.path.isdir(imagedir):
-        reader = Process(target=image_stream, args=(queue, imagedir, calib, stride, skip))
-        print(f"[DPVO] using image_stream: {imagedir}")
-    else:
-        reader = Process(target=video_stream, args=(queue, imagedir, calib, stride, skip))
-        print(f"[DPVO] using video_stream: {imagedir}")
-
-    reader.start()
-
-    nframes = 0
-    while 1:
-        print(f"[DPVO] waiting for frame... processed={nframes}")
-        (t, image, intrinsics) = queue.get()
-
-        if t < 0:
-            break
-
+    for t_ns, imfile in enumerate(tqdm(image_list, desc="DPVO", unit="frame")):
+        #
+        image = cv2.imread(str(imfile))
+        if len(calib) > 4:
+            image = cv2.undistort(image, K, calib[4:])
+        intrinsics = np.array([fx, fy, cx, cy])    
+        h, w, _ = image.shape
+        image = image[:h-h%16, :w-w%16]
         image = torch.from_numpy(image).permute(2,0,1).cuda()
         intrinsics = torch.from_numpy(intrinsics).cuda()
 
+        #
         if slam is None:
             _, H, W = image.shape
-            print(f"[DPVO] initializing DPVO with image size {W}x{H}")
             slam = DPVO(cfg, network, ht=H, wd=W, viz=viz)
+        slam(t_ns, image, intrinsics)
 
-        with Timer("SLAM", enabled=timeit):
-            slam(t, image, intrinsics)
-
-        nframes += 1
-        if nframes % 10 == 0:
-            print(f"[DPVO] processed {nframes} frames (last t={t})")
-
-    reader.join()
-
+    #
     points = slam.pg.points_.cpu().numpy()[:slam.m]
     colors = slam.pg.colors_.view(-1, 3).cpu().numpy()[:slam.m]
-
     result = slam.terminate()
-    print("[DPVO] finished")
+    print("DPVO finished.")
     return result, (points, colors, (*intrinsics, H, W))
 
 if __name__ == '__main__':
@@ -89,7 +77,6 @@ if __name__ == '__main__':
 
     cfg.merge_from_file(args.config)
     cfg.merge_from_list(args.opts)
-
     print("Running with config...")
     print(cfg)
 
@@ -98,18 +85,11 @@ if __name__ == '__main__':
 
     if args.save_ply:
         save_ply(args.name, points, colors)
-
     if args.save_colmap:
         save_output_for_COLMAP(args.name, trajectory, points, colors, *calib)
-
     if args.save_trajectory:
         Path("saved_trajectories").mkdir(exist_ok=True)
         file_interface.write_tum_trajectory_file(f"saved_trajectories/{args.name}.txt", trajectory)
-
     if args.plot:
         Path("trajectory_plots").mkdir(exist_ok=True)
         plot_trajectory(trajectory, title=f"DPVO Trajectory Prediction for {args.name}", filename=f"trajectory_plots/{args.name}.pdf")
-
-
-        
-
