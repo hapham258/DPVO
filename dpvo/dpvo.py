@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import torch
 import torch.multiprocessing as mp
@@ -192,6 +194,9 @@ class DPVO:
         poses = poses.inv().data.cpu().numpy()
         tstamps = np.array(self.tlist, dtype=np.float64)
         if self.viewer is not None:
+            while self.viewer.is_running():
+                time.sleep(0.01)
+            self.viewer.close()
             self.viewer.join()
 
         # Poses: x y z qx qy qz qw
@@ -384,7 +389,11 @@ class DPVO:
             raise Exception(f'The buffer size is too small. You can increase it using "--opts BUFFER_SIZE={self.N*2}"')
 
         if self.viewer is not None:
-            self.viewer.update_image(image.contiguous())
+            if self.viewer.is_running():
+                self.viewer.update_image(image.contiguous())
+            else:
+                print("Viewer stopped.")
+                return False
 
         image = 2 * (image[None,None] / 255.0) - 0.5
         
@@ -441,7 +450,7 @@ class DPVO:
         if self.n > 0 and not self.is_initialized:
             if self.motion_probe() < 2.0:
                 self.pg.delta[self.counter - 1] = (self.counter - 2, Id[0])
-                return
+                return True
 
         self.n += 1
         self.m += self.M
@@ -471,3 +480,5 @@ class DPVO:
         if self.cfg.CLASSIC_LOOP_CLOSURE:
             self.long_term_lc.attempt_loop_closure(self.n)
             self.long_term_lc.lc_callback()
+
+        return True

@@ -26,8 +26,15 @@ class Viewer {
       const torch::Tensor intrinsics);
 
     void close() {
-      running = false;
+      if (running) {
+        running = false;
+        destroyVBO();
+      }
     };
+
+    bool is_running() { 
+      return running.load();
+    }
 
     void join() {
       tViewer.join();
@@ -44,7 +51,7 @@ class Viewer {
     void run();
 
   private:
-    bool running;
+    std::atomic<bool> running{false};
     std::thread tViewer;
 
     int w;
@@ -89,7 +96,6 @@ Viewer::Viewer(
       const torch::Tensor intrinsics)
   : image(image), poses(poses), points(points), colors(colors), intrinsics(intrinsics)
 {
-  running = true;
   redraw = true;
   nFrames = poses.size(0);
   nPoints = points.size(0);
@@ -99,6 +105,7 @@ Viewer::Viewer(
   w = image.size(1);
 
   tViewer = std::thread(&Viewer::run, this);
+  running = true;
 };
 
 void Viewer::drawPoints() {
@@ -289,12 +296,7 @@ void Viewer::run() {
 
     pangolin::FinishFrame();
   }
-
-  // destroy OpenGL buffers
-  // destroyVBO();
-  running = false;
-
-  exit(1);
+  close();
 }
 
 
@@ -309,5 +311,7 @@ PYBIND11_MODULE(dpviewerx, m) {
                   const torch::Tensor,
                   const torch::Tensor>())
     .def("update_image", &Viewer::update_image)
+    .def("close", &Viewer::close)
+    .def("is_running", &Viewer::is_running)
     .def("join", &Viewer::join);
 }

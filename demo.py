@@ -54,7 +54,8 @@ def run(cfg, network, imagedir, calib, stride=1, skip=0, viz=False, timeit=False
     ], dtype=np.float32)
     D = cal["dist"].reshape(-1, 1)
     map1, map2 = None, None
-    for t_ns, imfile in enumerate(tqdm(image_list, desc="DPVO", unit="frame")):
+    pbar = tqdm(image_list, desc="DPVO", unit="frame", leave=False)
+    for t_ns, imfile in enumerate(pbar):
         #
         image = cv2.imread(str(imfile))
         orig_w, orig_h = cal["orig_w"], cal["orig_h"]
@@ -127,7 +128,10 @@ def run(cfg, network, imagedir, calib, stride=1, skip=0, viz=False, timeit=False
         if slam is None:
             _, H, W = image.shape
             slam = DPVO(cfg, network, ht=H, wd=W, viz=viz)
-        slam(t_ns, image, intrinsics)
+        if not slam(t_ns, image, intrinsics):
+            print("Exit main loop.")
+            pbar.close()
+            break
 
     #
     points = slam.pg.points_.cpu().numpy()[:slam.m]
