@@ -12,18 +12,33 @@ from evo.tools import file_interface
 from dpvo.config import cfg
 from dpvo.dpvo import DPVO
 from dpvo.plot_utils import plot_trajectory, save_output_for_COLMAP, save_ply
-from dpvo.utils import Timer
+
+
+def load_calib(calib_path):
+    with open(calib_path, "r") as f:
+        lines = [line.strip() for line in f if line.strip()]
+
+    vals = lines[0].split()
+    return {
+        "model": vals[0],
+        "fx": float(vals[1]),
+        "fy": float(vals[2]),
+        "cx": float(vals[3]),
+        "cy": float(vals[4]),
+        "dist": np.array([float(x) for x in vals[5:]], dtype=np.float32),
+        "orig_w": int(lines[1].split()[0]),
+        "orig_h": int(lines[1].split()[1]),
+        "crop_mode": lines[2],
+        "out_w": int(lines[3].split()[0]),
+        "out_h": int(lines[3].split()[1]),
+    }
+
 
 @torch.no_grad()
 def run(cfg, network, imagedir, calib, stride=1, skip=0, viz=False, timeit=False):
     #
-    calib = np.loadtxt(calib, delimiter=" ")
-    fx, fy, cx, cy = calib[:4]
-    K = np.eye(3)
-    K[0,0] = fx
-    K[0,2] = cx
-    K[1,1] = fy
-    K[1,2] = cy
+    cal = load_calib(calib)
+    W, H = cal["out_w"], cal["out_h"]
 
     #
     img_exts = ["*.png", "*.jpeg", "*.jpg"]
@@ -32,16 +47,81 @@ def run(cfg, network, imagedir, calib, stride=1, skip=0, viz=False, timeit=False
 
     #
     slam = None
+    K = np.array([
+        [cal["fx"], 0, cal["cx"]],
+        [0, cal["fy"], cal["cy"]],
+        [0, 0, 1],
+    ], dtype=np.float32)
+    D = cal["dist"].reshape(-1, 1)
+    map1, map2 = None, None
     for t_ns, imfile in enumerate(tqdm(image_list, desc="DPVO", unit="frame")):
         #
         image = cv2.imread(str(imfile))
-        if len(calib) > 4:
-            image = cv2.undistort(image, K, calib[4:])
-        intrinsics = np.array([fx, fy, cx, cy])    
+        orig_w, orig_h = cal["orig_w"], cal["orig_h"]
+        out_w, out_h = cal["out_w"], cal["out_h"]
+        if cal["model"] == "Pinhole":
+            fx, fy = cal["fx"], cal["fy"]
+            cx, cy = cal["cx"], cal["cy"]
+            if out_w != orig_w or out_h != orig_h:
+                x = (orig_w - out_w) // 2
+                y = (orig_h - out_h) // 2
+                image = image[y:y + out_h, x:x + out_w]
+                cx -= x
+                cy -= y
+        elif cal["model"] == "RadTan":
+            if map1 is None or map2 is None:
+                new_K, _ = cv2.getOptimalNewCameraMatrix(
+                    K,
+                    D,
+                    (orig_w, orig_h),
+                    0,
+                    (out_w, out_h),
+                )
+                map1, map2 = cv2.initUndistortRectifyMap(
+                    K,
+                    D,
+                    None,
+                    new_K,
+                    (out_w, out_h),
+                    cv2.CV_16SC2,
+                )
+            image = cv2.remap(image, map1, map2, interpolation=cv2.INTER_LINEAR)
+            fx = new_K[0, 0]
+            fy = new_K[1, 1]
+            cx = new_K[0, 2]
+            cy = new_K[1, 2]
+        elif cal["model"] == "EquiDistant":
+            if map1 is None or map2 is None:
+                new_K = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
+                    K,
+                    D,
+                    (orig_w, orig_h),
+                    np.eye(3, dtype=np.float32),
+                    None,
+                    0.0,
+                    (out_w, out_h),
+                )
+                map1, map2 = cv2.fisheye.initUndistortRectifyMap(
+                    K,
+                    D,
+                    np.eye(3, dtype=np.float32),
+                    new_K,
+                    (out_w, out_h),
+                    cv2.CV_16SC2,
+                )
+            image = cv2.remap(image, map1, map2, interpolation=cv2.INTER_LINEAR)
+            fx = new_K[0, 0]
+            fy = new_K[1, 1]
+            cx = new_K[0, 2]
+            cy = new_K[1, 2]
+        else:
+            raise ValueError(f"Unsupported camera model: {cal['model']}")
+        intrinsics = torch.tensor([fx, fy, cx, cy], dtype=torch.float32, device="cuda")
+
+        #
         h, w, _ = image.shape
         image = image[:h-h%16, :w-w%16]
         image = torch.from_numpy(image).permute(2,0,1).cuda()
-        intrinsics = torch.from_numpy(intrinsics).cuda()
 
         #
         if slam is None:
@@ -55,6 +135,7 @@ def run(cfg, network, imagedir, calib, stride=1, skip=0, viz=False, timeit=False
     result = slam.terminate()
     print("DPVO finished.")
     return result, (points, colors, (*intrinsics, H, W))
+
 
 if __name__ == '__main__':
     import argparse
