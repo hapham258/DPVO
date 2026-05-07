@@ -14,8 +14,13 @@ def unzip_and_flatten(root_dir):
             continue
         zip_path = os.path.join(root_dir, f)
         print(f"Extracting: {zip_path}")
-        with zipfile.ZipFile(zip_path, "r") as z:
-            z.extractall(temp_dir)
+        try:
+            with zipfile.ZipFile(zip_path, "r") as z:
+                z.extractall(temp_dir)
+            os.remove(zip_path)
+            print(f"Removed: {zip_path}")
+        except Exception as e:
+            print(f"Failed extracting {zip_path}: {e}")
 
     #
     for item in os.listdir(temp_dir):
@@ -27,8 +32,8 @@ def unzip_and_flatten(root_dir):
         print(f"Moving: {src} -> {dst}")
         shutil.move(src, dst)
 
-    #
-    shutil.rmtree(temp_dir)
+    # #
+    # shutil.rmtree(temp_dir)
 
 
 if __name__ == "__main__":
