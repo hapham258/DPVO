@@ -1,0 +1,10 @@
+dataset_type: tartan_air2
+sequence:
+  - env: ArchVizTinyHouseDay
+    difficulty: [easy, hard]
+    modality: [image, depth]
+    camera_name: [lcam_front]
+  - env: ArchVizTinyHouseNight
+    difficulty: [easy, hard]
+    modality: [image, depth]
+    camera_name: [lcam_front]

@@ -159,6 +159,8 @@ rsync*
 models/*
 datasets/TartanAir.pickle
 datasets/TartanAir
+datasets/TartanAir2
+datasets/TartanGround
 TartanAirResults
 thirdparty/*
 

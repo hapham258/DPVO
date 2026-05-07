@@ -1,0 +1,76 @@
+dataset_type: tartan_air
+
+sequence:
+  - env: abandonedfactory
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: abandonedfactory_night
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: amusement
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: carwelding
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: endofworld
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: gascola
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: hospital
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: japanesealley
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: neighborhood
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: ocean
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: office
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: office2
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: oldtown
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: seasidetown
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: seasonsforest
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: seasonsforest_winter
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: soulcity
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  - env: westerndesert
+    difficulty: [Easy, Hard]
+    modality: [image, depth]
+    camera_name: [left]
+  
