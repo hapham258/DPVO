@@ -161,6 +161,7 @@ datasets/TartanAir.pickle
 datasets/TartanAir
 datasets/TartanAir2
 datasets/TartanGround
+datasets/mono
 TartanAirResults
 thirdparty/*
 
