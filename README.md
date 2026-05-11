@@ -15,12 +15,40 @@ make install
 cd ../../
 pip install --no-build-isolation ./DPViewer
 ```
-Run:
+Run inference:
 ```
 export SLAM_DATASETS_PATH=$HOME/Documents/SLAM_Datasets
 export SLAM_TESTINGS_PATH=$HOME/Documents/SLAM_Testings
 python demo.py --imagedir=$SLAM_DATASETS_PATH/euroc/MH_01_easy/mav0/cam0/data/ --calib=calib/euroc.txt --stride=2 --plot --viz --opts LOOP_CLOSURE True
 python demo.py --imagedir=$SLAM_TESTINGS_PATH/zedx_mini/14/mav0/cam0/data/ --calib=calib/zedx_mini.txt --stride=2 --plot --viz --opts LOOP_CLOSURE True
+```
+Run training:
+```
+// On server
+python train.py --steps=240000 --lr=0.00008 --name=demo_train
+
+// On PC
+export OUTPUTS_PATH=$HOME/Desktop/dpvo_stuff
+export TRAINING_OUTPUTS_PATH=$OUTPUTS_PATH/demo_train/train_res
+mkdir -p $TRAINING_OUTPUTS_PATH
+export SERVER_REPO_PATH=/mnt/data/hapq/DPVO
+scp -r <server_alias>:$SERVER_REPO_PATH/checkpoints <server_alias>:$SERVER_REPO_PATH/TartanAirResults $TRAINING_OUTPUTS_PATH
+```
+Run evaluation:
+```
+// On PC
+python postprocess/select_checkpoint.py --results_dir=$TRAINING_OUTPUTS_PATH/TartanAirResults # Suppose demo_train_240000.pth is selected
+
+// On server
+python evaluate_tartan.py --trials=5 --split=validation --plot --save_trajectory --weights=checkpoints/demo_train_240000.pth
+./collect_tartan_gt.sh /media/vmo/KINGSTON/SLAM_Datasets/tartan_air gt_trajs
+
+// On PC
+export EVAL_OUTPUTS_PATH=$OUTPUTS_PATH/demo_train/eval_res
+mkdir -p $EVAL_OUTPUTS_PATH/demo_train_240000_ckpt
+scp -r <server_alias>:$SERVER_REPO_PATH/saved_trajectories <server_alias>:$SERVER_REPO_PATH/trajectory_plots $EVAL_OUTPUTS_PATH
+python postprocess/fix_tartan_gt.py --input_dir=$OUTPUTS_PATH/gt_trajs --output_dir=$OUTPUTS_PATH/gt_trajs_fixed
+python postprocess/plot_auc_curve.py
 ```
 
 # Deep Patch Visual Odometry/SLAM
