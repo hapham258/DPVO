@@ -244,21 +244,17 @@ if __name__ == "__main__":
 
     #
     experiments = {
-        "Pretrain": os.path.join(
+        "Pre-train": os.path.join(
             base_dir,
             "default_weight/eval_res/dpvo_ckpt/saved_trajectories",
         ),
-        "demo_train2_130000": os.path.join(
-            base_dir,
-            "demo_train/eval_res/05-10-12PM_demo_train2_130000_ckpt/saved_trajectories",
-        ),
-        "demo_train2_120000": os.path.join(
+        "w.o. weighted loss": os.path.join(
             base_dir,
             "demo_train/eval_res/05-10-11PM_demo_train2_120000_ckpt/saved_trajectories",
         ),
-        "demo_train2_080000": os.path.join(
+        "with weighted loss": os.path.join(
             base_dir,
-            "demo_train/eval_res/05-10-07PM_demo_train2_080000_ckpt/saved_trajectories",
+            "v2v/eval_res/v2v_240000/saved_trajectories",
         ),
     }
 

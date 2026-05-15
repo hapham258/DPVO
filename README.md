@@ -45,8 +45,8 @@ python evaluate_tartan.py --trials=5 --split=validation --plot --save_trajectory
 
 // On PC
 export EVAL_OUTPUTS_PATH=$OUTPUTS_PATH/demo_train/eval_res
-mkdir -p $EVAL_OUTPUTS_PATH/demo_train_240000_ckpt
-scp -r <server_alias>:$SERVER_REPO_PATH/saved_trajectories <server_alias>:$SERVER_REPO_PATH/trajectory_plots $EVAL_OUTPUTS_PATH
+mkdir -p $EVAL_OUTPUTS_PATH/demo_train_240000
+scp -r <server_alias>:$SERVER_REPO_PATH/saved_trajectories <server_alias>:$SERVER_REPO_PATH/trajectory_plots $EVAL_OUTPUTS_PATH/demo_train_240000
 scp -r <server_alias>:$SERVER_REPO_PATH/eval_gt_trajs $OUTPUTS_PATH
 python postprocess/fix_tartan_gt.py --input_dir=$OUTPUTS_PATH/eval_gt_trajs --output_dir=$OUTPUTS_PATH/eval_gt_trajs_fixed
 python postprocess/plot_auc_curve.py
@@ -58,8 +58,8 @@ python evaluate_tartan.py --trials=5 --split=test --plot --save_trajectory --wei
 
 // On PC
 export TESTING_OUTPUTS_PATH=$OUTPUTS_PATH/demo_train/test_res
-mkdir -p $TESTING_OUTPUTS_PATH/demo_train_240000_ckpt
-scp -r <server_alias>:$SERVER_REPO_PATH/saved_trajectories <server_alias>:$SERVER_REPO_PATH/trajectory_plots $TESTING_OUTPUTS_PATH
+mkdir -p $TESTING_OUTPUTS_PATH/demo_train_240000
+scp -r <server_alias>:$SERVER_REPO_PATH/saved_trajectories <server_alias>:$SERVER_REPO_PATH/trajectory_plots $TESTING_OUTPUTS_PATH/demo_train_240000
 python postprocess/fix_tartan_gt.py --input_dir=$OUTPUTS_PATH/testing_gt_trajs --output_dir=$OUTPUTS_PATH/testing_gt_trajs_fixed
 ```
 

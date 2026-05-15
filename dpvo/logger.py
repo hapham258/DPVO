@@ -6,22 +6,29 @@ from torch.utils.tensorboard import SummaryWriter
 SUM_FREQ = 100
 
 class Logger:
-    def __init__(self, name, scheduler):
-        self.total_steps = 0
+    def __init__(self, name, scheduler, args, start_step=0):
+        self.total_steps = start_step
         self.running_loss = {}
         self.writer = None
         self.name = name
         self.scheduler = scheduler
+        self.save_dir = args.save_dir
 
     def _print_training_status(self):
         if self.writer is None:
-            self.writer = SummaryWriter("runs/{}".format(self.name))
-            print([k for k in self.running_loss])
+            self.writer = SummaryWriter("{}/{}".format(self.save_dir, self.name))
+            # print([k for k in self.running_loss])
 
-        lr = self.scheduler.get_lr().pop()
-        metrics_data = [self.running_loss[k]/SUM_FREQ for k in self.running_loss.keys()]
+        if self.scheduler is not None:
+            lr = self.scheduler.get_last_lr().pop()
+        else:
+            lr = 0.0
+        keys_to_print = ['loss', 'px1', 'ro', 'tr']
+        metrics_data = [self.running_loss[k]/SUM_FREQ for k in keys_to_print]
         training_str = "[{:6d}, {:10.7f}] ".format(self.total_steps+1, lr)
-        metrics_str = ("{:10.4f}, "*len(metrics_data)).format(*metrics_data)
+        metrics_str = "".join(
+            [f"{k}: {v:10.4f}, " for k, v in zip(keys_to_print, metrics_data)]
+        )
         
         # print the training status
         print(training_str + metrics_str)
@@ -47,7 +54,7 @@ class Logger:
 
     def write_dict(self, results):
         if self.writer is None:
-            self.writer = SummaryWriter("runs/{}".format(self.name))
+            self.writer = SummaryWriter("{}/{}".format(self.save_dir,self.name))
             print([k for k in self.running_loss])
             
         for key in results:

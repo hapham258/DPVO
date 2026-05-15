@@ -68,7 +68,7 @@ def ate(traj_ref, traj_est):
 
 
 @torch.no_grad()
-def evaluate(config, net, split="validation", trials=1, plot=False, save=False):
+def evaluate(config, net, save_str, split="validation", trials=1, plot=False, save=False):
 
     if config is None:
         config = cfg
@@ -89,14 +89,18 @@ def evaluate(config, net, split="validation", trials=1, plot=False, save=False):
             # estimated trajectory
             if split == 'test':
                 scene_path = os.path.join("datasets/mono", scene)
-                traj_ref = osp.join("datasets/mono", "mono_gt", scene + ".txt")
-            
+                traj_ref = osp.join("datasets/mono", "mono_gt", scene + ".txt")            
             elif split == 'validation':
                 scene_path = os.path.join("datasets/TartanAir", scene, "image_left")
                 traj_ref = osp.join("datasets/TartanAir", scene, "pose_left.txt")
+            else:
+                raise ValueError(f"Unknown split: {split}")
 
             # run the slam system
-            traj_est, tstamps = run(scene_path, config, net, viz=False, show_img=False)
+            try:
+                traj_est, tstamps = run(scene_path, config, net)
+            except:
+                continue
 
             PERM = [1, 2, 0, 4, 5, 3, 6] # ned -> xyz
             traj_ref = np.loadtxt(traj_ref, delimiter=" ")[::STRIDE, PERM]
@@ -112,7 +116,10 @@ def evaluate(config, net, split="validation", trials=1, plot=False, save=False):
                 timestamps=tstamps)
 
             # do evaluation
-            ate_score = ate(traj_ref, traj_est)
+            try:
+                ate_score = ate(traj_ref, traj_est)
+            except:
+                continue
             all_results.append(ate_score)
             results[scene].append(ate_score)
 
@@ -130,12 +137,14 @@ def evaluate(config, net, split="validation", trials=1, plot=False, save=False):
 
     results_dict = dict([("Tartan/{}".format(k), np.median(v)) for (k, v) in results.items()])
 
-    # write output to file with timestamp
-    with open(osp.join("TartanAirResults", datetime.datetime.now().strftime('%m-%d-%I%p.txt')), "w") as f:
+    # write output to file
+    with open(osp.join("TartanAirResults/", save_str), "w") as f:
         f.write(','.join([str(x) for x in all_results]))
 
     xs = []
     for scene in results:
+        if len(results[scene]) == 0:
+            continue
         x = np.median(results[scene])
         xs.append(x)
 
@@ -193,6 +202,7 @@ if __name__ == '__main__':
         print(ate(traj_ref, traj_est))
 
     else:
-        results = evaluate(cfg, args.weights, split=args.split, trials=args.trials, plot=args.plot, save=args.save_trajectory)
+        save_str = os.path.splitext(os.path.basename(args.weights))[0]
+        results = evaluate(cfg, args.weights, save_str, split=args.split, trials=args.trials, plot=args.plot, save=args.save_trajectory)
         for k in results:
             print(k, results[k])

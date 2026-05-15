@@ -18,7 +18,6 @@ from .blocks import GradientClip, GatedResidual, SoftAgg
 from .utils import *
 from .ba import BA
 from . import projective_ops as pops
-
 autocast = torch.cuda.amp.autocast
 import matplotlib.pyplot as plt
 
@@ -185,7 +184,7 @@ class VONet(nn.Module):
 
 
     @autocast(enabled=False)
-    def forward(self, images, poses, disps, intrinsics, M=1024, STEPS=12, P=1, structure_only=False, rescale=False):
+    def forward(self, images, poses, disps, intrinsics, M=1024, STEPS=12, P=1, structure_only=False, wtd_loss=False, total_steps=0, rescale=False):
         """ Estimates SE3 or Sim3 between pair of frames """
 
         images = 2 * (images / 255.0) - 0.5
@@ -218,7 +217,10 @@ class VONet(nn.Module):
 
         traj = []
         bounds = [-64, -64, w + 64, h + 64]
-        
+        step = 0
+        more_logs = {}
+        logging = torch.zeros((STEPS, 13)).requires_grad_(True)
+        more_outs = []
         while len(traj) < STEPS:
             Gs = Gs.detach()
             patches = patches.detach()
@@ -248,7 +250,12 @@ class VONet(nn.Module):
 
             coords = pops.transform(Gs, patches, intrinsics, ii, jj, kk)
             coords1 = coords.permute(0, 1, 4, 2, 3).contiguous()
+            coords_gt, valid, _ = pops.transform(Ps, patches_gt, intrinsics, ii, jj, kk, jacobian=True)
 
+            if step % 2 == 0:
+                more_logs[f"pxgt/px{step}"] = ((coords_gt - coords)[...,p//2,p//2,:] < 1).float().mean().item()
+                more_logs[f"pxgt/px05{step}"] = ((coords_gt - coords)[...,p//2,p//2,:] < 0.5).float().mean().item()
+                more_logs[f"pxgt/px025{step}"] = ((coords_gt - coords)[...,p//2,p//2,:] < 0.25).float().mean().item()
             corr = corr_fn(kk, jj, coords1)
             net, (delta, weight, _) = self.update(net, imap[:,kk], corr, None, ii, jj, kk)
 
@@ -262,12 +269,37 @@ class VONet(nn.Module):
 
             kl = torch.as_tensor(0)
             dij = (ii - jj).abs()
-            k = (dij > 0) & (dij <= 2)
+            if wtd_loss:
+                k = dij < 100
+            else:
+                k = (dij > 0) & (dij <= 2)
 
-            coords = pops.transform(Gs, patches, intrinsics, ii[k], jj[k], kk[k])
-            coords_gt, valid, _ = pops.transform(Ps, patches_gt, intrinsics, ii[k], jj[k], kk[k], jacobian=True)
+            coords = pops.transform(Gs, patches, intrinsics, ii, jj, kk)
+            
+            traj.append((valid[:,k], coords[:,k], coords_gt[:,k], Gs[:,:n], Ps[:,:n], patches[..., 2, p//2, p//2], weight[:,k], delta, weight, valid, target, coords, coords_gt, net))
+            step+=1
+            more_outs.append([patches, patches_gt, ii, jj, kk, bounds])
+        stats = self.get_stats(traj)
+        stats.update(more_logs)
+        return traj, stats, logging, more_outs
 
-            traj.append((valid, coords, coords_gt, Gs[:,:n], Ps[:,:n], kl))
-
-        return traj
-
+    def get_stats(self, traj):
+        stats = {}
+        stats['fp_res/pose'] = (traj[-1][3].data[0] - traj[-2][3].data[0]).norm(dim=-1).detach().cpu().numpy().mean()
+        stats['fp_res/flow'] = (traj[-1][-3][0, :, 1, 1,:] - traj[-2][-3][0, :, 1, 1,:]).norm(dim=-1).detach().cpu().numpy().mean()
+        stats['fp_res/wtd_flow'] = (traj[-1][-6]*(traj[-1][-3][0, :, 1, 1,:] - traj[-2][-3][0, :, 1, 1,:])).norm(dim=-1).mean().item()
+        stats['fp_res/wtdnet'] = (traj[-1][-6].norm(dim=-1)[...,None]*(traj[-1][-1] - traj[-2][-1])).norm(dim=-1).detach().cpu().numpy().mean()
+        stats['fp_res/net'] = (traj[-1][-1] - traj[-2][-1]).norm(dim=-1).detach().cpu().numpy().mean()
+        stats['fp_res/depth'] = (traj[-1][5] - traj[-2][5]).norm(dim=-1).detach().cpu().numpy().mean()
+        stats['fp_res/weight'] = (traj[-1][-6] - traj[-2][-6]).norm(dim=-1).detach().cpu().numpy().mean()
+        stats['avg_wt/avg'] = traj[-1][-6].mean().item()
+        stats['avg_wt/thres02'] = (traj[-1][-6] > 0.2).float().mean().item()
+        stats['avg_wt/thres05'] = (traj[-1][-6] > 0.5).float().mean().item()
+        stats['wtfl/err'] = torch.sqrt((traj[-1][-6]*(traj[-1][-2][...,1,1,:] - traj[-1][-3][...,1,1,:])**2).mean(dim=-1)).mean().item()
+        stats['wtfl/flowerr'] = torch.sqrt(((traj[-1][-2][...,1,1,:] - traj[-1][-3][...,1,1,:])**2).mean(dim=-1)).mean().item()
+        for i, traji in enumerate(traj):
+            stats[f'delta/del_med{i}'] = traji[7].abs().median().item()
+            stats[f'wt_iters/wt2{i}'] = traji[-6].mean().item()
+            stats[f'fl_iters/fl{i}'] = ((traji[-2][...,1,1,:] - traji[-3][...,1,1,:]).abs()).mean(dim=-1).mean().item()
+            stats[f'fl_iters/wtdfl{i}'] = (traji[-6]*(traji[-2][...,1,1,:] - traji[-3][...,1,1,:]).abs()).mean(dim=-1).mean().item()
+        return stats

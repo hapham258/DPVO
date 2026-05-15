@@ -16,7 +16,9 @@ import torch.nn.functional as F
 
 from dpvo.net import VONet
 from evaluate_tartan import evaluate as validate
-
+import random
+import time
+import datetime
 
 def show_image(image):
     image = image.permute(1, 2, 0).cpu().numpy()
@@ -40,12 +42,34 @@ def kabsch_umeyama(A, B):
     c = VarA / torch.trace(torch.diag(D))
     return c
 
+def seeding(seed=0, torch_deterministic=False):
+    print("Setting seed: {}".format(seed))
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    # if torch_deterministic:
+    #     # refer to https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility
+    #     os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+    #     torch.backends.cudnn.benchmark = False
+    #     torch.backends.cudnn.deterministic = True
+    #     torch.use_deterministic_algorithms(True)
+    # else:
+    #     torch.backends.cudnn.benchmark = True
+    #     torch.backends.cudnn.deterministic = False
+
+    return seed
 
 def train(args):
     """ main training loop """
 
     # legacy ddp code
     rank = 0
+    seeding(0)
 
     db = dataset_factory(['tartan'], datapath="datasets/TartanAir", n_frames=args.n_frames)
     train_loader = DataLoader(db, batch_size=1, shuffle=True, num_workers=4)
@@ -53,6 +77,7 @@ def train(args):
     net = VONet()
     net.train()
     net.cuda()
+    torch.set_printoptions(precision=6, threshold=1000, linewidth=160, sci_mode=False)
 
     if args.ckpt is not None:
         state_dict = torch.load(args.ckpt)
@@ -61,31 +86,73 @@ def train(args):
             new_state_dict[k.replace('module.', '')] = v
         net.load_state_dict(new_state_dict, strict=False)
 
-    optimizer = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-6)
+        if args.resume_train:
+            import re
+            start_epoch = int(re.findall(r'\d+', args.ckpt)[-1])
+            print('Starting from epoch', start_epoch)
 
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, 
-        args.lr, args.steps, pct_start=0.01, cycle_momentum=False, anneal_strategy='linear')
+        optimizer = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-6)
 
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
+            args.lr, args.steps, pct_start=0.01, cycle_momentum=False, anneal_strategy='linear')
+
+        if args.resume_train:
+            optimizer.load_state_dict(torch.load(args.ckpt.replace('.pth', '_optim.pth')))
+            scheduler.load_state_dict(torch.load(args.ckpt.replace('.pth', '_sched.pth')))
+    else:
+        start_epoch = 0
+
+        optimizer = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-6)
+
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, 
+            args.lr, args.steps, pct_start=0.01, cycle_momentum=False, anneal_strategy='linear')
+    
     if rank == 0:
-        logger = Logger(args.name, scheduler)
+        logger = Logger(args.name, scheduler, args, start_epoch)
 
-    total_steps = 0
-
+    total_steps = start_epoch
+    wtd_obj = args.wtd_obj
+    flow_coeff = 1.0
+    ro_coeff = 1.0
+    flow_coeff_ratios = []
+    ro_coeff_ratios = []
+    STEPS = args.iters
+    start_time = time.time()
+    time_logs = []
     while 1:
         for data_blob in train_loader:
             images, poses, disps, intrinsics = [x.cuda().float() for x in data_blob]
             optimizer.zero_grad()
 
             # fix poses to gt for first 1k steps
-            so = total_steps < 1000 and args.ckpt is None
+            if not args.so_flag:
+                so = False
+            else:
+                so = total_steps < 1000 and args.ckpt is None
 
             poses = SE3(poses).inv()
-            traj = net(images, poses, disps, intrinsics, M=1024, STEPS=18, structure_only=so)
+            traj, stats, logging, _ = net(images, poses, disps, intrinsics, M=1024, STEPS=STEPS, structure_only=so, wtd_loss=args.all_flows_loss, total_steps=total_steps)
 
+            tr_list = []
+            ro_list = []
+            ef_list = []
             loss = 0.0
-            for i, (v, x, y, P1, P2, kl) in enumerate(traj):
-                e = (x - y).norm(dim=-1)
-                e = e.reshape(-1, net.P**2)[(v > 0.5).reshape(-1)].min(dim=-1).values
+            pose_loss = 0.0
+            flow_loss = 0.0
+            ro_loss = 0.0
+            tr_loss = 0.0
+            for i, (v, x, y, P1, P2, _, wtk, _, _, vf, _, xf, yf, _) in enumerate(traj):
+                if wtd_obj:
+                    wtk_d = wtk[:, :, None, None, :].detach()
+                    e = ((x-y)*wtk_d).norm(dim=-1)
+                    e = e.reshape(-1, net.P**2)[(v > 0.5).reshape(-1)].min(dim=-1).values
+                else:
+                    e = (x - y).norm(dim=-1)
+                    e = e.reshape(-1, net.P**2)[(v > 0.5).reshape(-1)].min(dim=-1).values
+                    
+
+                ef = (xf - yf).norm(dim=-1)
+                ef = ef.reshape(-1, net.P**2)[(vf > 0.5).reshape(-1)].min(dim=-1).values
 
                 N = P1.shape[1]
                 ii, jj = torch.meshgrid(torch.arange(N), torch.arange(N))
@@ -112,14 +179,31 @@ def train(args):
                 tr = e1[...,0:3].norm(dim=-1)
                 ro = e1[...,3:6].norm(dim=-1)
 
-                loss += args.flow_weight * e.mean()
-                if not so and i >= 2:
-                    loss += args.pose_weight * ( tr.mean() + ro.mean() )
+                tr_list.append(tr)
+                ro_list.append(ro)
+                ef_list.append(ef)
+                
+                flow_loss += args.flow_weight * e.mean()
+                if not so and (i >= 2 or args.all_poses_loss):
+                    ro_l = ro.mean()
+                    tr_l = tr.mean()
+                    pose_loss += args.pose_weight * ( tr_l + ro_coeff*ro_l )
+                    ro_loss += ro_l
+                    tr_loss += tr_l
 
-            # kl is 0 (not longer used)
-            loss += kl
+            if wtd_obj and total_steps > 0 and total_steps % 20 == 0 and not so:
+                flow_grad = max(torch.autograd.grad(flow_loss, net.update.gru[1].res[0].weight, retain_graph=True)[0].norm().item(), 1e-6)
+                pose_grad = max(torch.autograd.grad(pose_loss, net.update.gru[1].res[0].weight, retain_graph=True)[0].norm().item(), 1e-6)
+                tr_grad = max(torch.autograd.grad(tr_loss, net.update.gru[1].res[0].weight, retain_graph=True)[0].norm().item(), 1e-6)
+                ro_grad = max(torch.autograd.grad(ro_loss, net.update.gru[1].res[0].weight, retain_graph=True)[0].norm().item(), 1e-6)
+                
+                ro_coeff_ratios = ro_coeff_ratios[-50:] + [max(min(tr_grad/ro_grad, 10*ro_coeff), 0.1*ro_coeff)]
+                ro_coeff = np.mean(ro_coeff_ratios)
+                flow_coeff_ratios = flow_coeff_ratios[-50:] + [max(min(pose_grad/flow_grad, 10*flow_coeff), 0.1*flow_coeff)]
+                flow_coeff = np.mean(flow_coeff_ratios)
+
+            loss = flow_coeff*flow_loss + pose_loss
             loss.backward()
-
             torch.nn.utils.clip_grad_norm_(net.parameters(), args.clip)
             optimizer.step()
             scheduler.step()
@@ -128,7 +212,6 @@ def train(args):
 
             metrics = {
                 "loss": loss.item(),
-                "kl": kl.item(),
                 "px1": (e < .25).float().mean().item(),
                 "ro": ro.float().mean().item(),
                 "tr": tr.float().mean().item(),
@@ -136,19 +219,42 @@ def train(args):
                 "r2": (ro < .01).float().mean().item(),
                 "t1": (tr < .001).float().mean().item(),
                 "t2": (tr < .01).float().mean().item(),
+                "coeffs/ro": ro_coeff,
+                "coeffs/flow": flow_coeff
             }
+
+            for i, (tr, ro, ef) in enumerate(zip(tr_list, ro_list, ef_list)):
+                if (i>3 and i%2==0 and i<8) or (i>7 and i%4==0 and i<16) or (i>15):
+                    stats[f'itermetrics/r1_it{i}'] = (ro < .001).float().mean().item()
+                    stats[f'itermetrics/r2_it{i}'] = (ro < .01).float().mean().item()
+                    stats[f'itermetrics/t2_it{i}'] = (tr < .01).float().mean().item()
+                    stats[f'itermetrics/t1_it{i}'] = (tr < .001).float().mean().item()
+                    stats[f'itermetrics/px1_it{i}'] = (ef < .25).float().mean().item()
+            metrics.update(stats)
 
             if rank == 0:
                 logger.push(metrics)
+
+            if total_steps % 100 == 0:
+                end_time = time.time()
+                time_logs.append(end_time - start_time)
+                mean_time = np.mean(time_logs[1:]) if len(time_logs) > 1 else 0.0
+                # print("recent time :", end_time - start_time, "mean time :", mean_time)
+                start_time = end_time
 
             if total_steps % 10000 == 0:
                 torch.cuda.empty_cache()
 
                 if rank == 0:
                     PATH = 'checkpoints/%s_%06d.pth' % (args.name, total_steps)
+                    OPTIM_PATH = 'checkpoints/%s_%06d_optim.pth' % (args.name, total_steps)
+                    SCHED_PATH = 'checkpoints/%s_%06d_sched.pth' % (args.name, total_steps)
                     torch.save(net.state_dict(), PATH)
+                    torch.save(optimizer.state_dict(), OPTIM_PATH)
+                    torch.save(scheduler.state_dict(), SCHED_PATH)
 
-                validation_results = validate(None, net)
+                save_str = '%s_%06d.txt' % (args.name, total_steps)
+                validation_results = validate(None, net, save_str)
                 if rank == 0:
                     logger.write_dict(validation_results)
 
@@ -164,8 +270,15 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.00008)
     parser.add_argument('--clip', type=float, default=10.0)
     parser.add_argument('--n_frames', type=int, default=15)
+    parser.add_argument('--iters', type=int, default=18)
     parser.add_argument('--pose_weight', type=float, default=10.0)
     parser.add_argument('--flow_weight', type=float, default=0.1)
+    parser.add_argument('--save_dir', type=str, default='runs')
+    parser.add_argument('--resume_train', action='store_true')
+    parser.add_argument('--all_poses_loss', action='store_true')
+    parser.add_argument('--all_flows_loss', action='store_false')
+    parser.add_argument('--so_flag', action='store_true')
+    parser.add_argument('--wtd_obj', action='store_true')
     args = parser.parse_args()
 
     train(args)
