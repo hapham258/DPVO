@@ -1,10 +1,76 @@
 dataset_type: tartan_air2
 sequence:
-  - env: ArchVizTinyHouseDay
-    difficulty: [easy, hard]
-    modality: [image, depth]
-    camera_name: [lcam_front]
-  - env: ArchVizTinyHouseNight
-    difficulty: [easy, hard]
-    modality: [image, depth]
-    camera_name: [lcam_front]
+  - {env: AbandonedCable, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: AbandonedFactory, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: AbandonedFactory2, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: AbandonedSchool, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: AmericanDiner, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: AmusementPark, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: AncientTowns, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Antiquity3D, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Apocalyptic, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: ArchVizTinyHouseDay, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: ArchVizTinyHouseNight, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: BrushifyMoon, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: CarWelding, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: CastleFortress, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: CoalMine, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: ConstructionSite, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: CountryHouse, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: CyberPunkDowntown, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Cyberpunk, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: DesertGasStation, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Downtown, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: EndofTheWorld, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: FactoryWeather, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Fantasy, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: ForestEnv, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Gascola, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: GothicIsland, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: GreatMarsh, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: HQWesternSaloon, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: HongKong, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Hospital, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: House, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: IndustrialHangar, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: JapaneseAlley, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: JapaneseCity, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: MiddleEast, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: ModUrbanCity, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: ModernCityDowntown, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: ModularNeighborhood, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: ModularNeighborhoodIntExt, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: NordicHarbor, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Ocean, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Office, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: OldBrickHouseDay, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: OldBrickHouseNight, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: OldIndustrialCity, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: OldScandinavia, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: OldTownFall, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: OldTownNight, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: OldTownSummer, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: OldTownWinter, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: PolarSciFi, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Prison, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Restaurant, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: RetroOffice, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Rome, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Ruins, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: SeasideTown, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: SeasonalForestAutumn, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: SeasonalForestSpring, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: SeasonalForestSummerNight, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: SeasonalForestWinter, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: SeasonalForestWinterNight, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Sewerage, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: ShoreCaves, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Slaughter, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: SoulCity, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: Supermarket, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: TerrainBlending, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: UrbanConstruction, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: VictorianStreet, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: WaterMillDay, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: WaterMillNight, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
+  - {env: WesternDesertTown, difficulty: [easy, hard], modality: [image, depth], camera_name: [lcam_front]}
