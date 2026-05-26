@@ -36,10 +36,17 @@ class RGBDDataset(data.Dataset):
         cur_path = osp.dirname(osp.abspath(__file__))
         if not os.path.isdir(osp.join(cur_path, 'cache')):
             os.mkdir(osp.join(cur_path, 'cache'))
-        
-        self.scene_info = \
-            pickle.load(open('datasets/TartanAir.pickle', 'rb'))[0]
+        fgraph_pickle = 'datasets/' + name + '.pickle'
+        if not os.path.exists(fgraph_pickle):
+            scene_info = self._build_dataset()
+            with open(fgraph_pickle, 'wb') as f:
+                pickle.dump((scene_info,), f)
+        else:
+            print(f"Loading {name} dataset")
+            with open(fgraph_pickle, 'rb') as f:
+                scene_info = pickle.load(f)[0]
 
+        self.scene_info = scene_info
         self._build_dataset_index()
                 
     def _build_dataset_index(self):

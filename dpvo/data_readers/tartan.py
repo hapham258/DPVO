@@ -15,38 +15,38 @@ from .base import RGBDDataset
 
 
 test_split = [
-    "abandonedfactory/abandonedfactory/Easy/P011",
-    "abandonedfactory/abandonedfactory/Hard/P011",
-    "abandonedfactory_night/abandonedfactory_night/Easy/P013",
-    "abandonedfactory_night/abandonedfactory_night/Hard/P014",
-    "amusement/amusement/Easy/P008",
-    "amusement/amusement/Hard/P007",
-    "carwelding/carwelding/Easy/P007",
-    "endofworld/endofworld/Easy/P009",
-    "gascola/gascola/Easy/P008",
-    "gascola/gascola/Hard/P009",
-    "hospital/hospital/Easy/P036",
-    "hospital/hospital/Hard/P049",
-    "japanesealley/japanesealley/Easy/P007",
-    "japanesealley/japanesealley/Hard/P005",
-    "neighborhood/neighborhood/Easy/P021",
-    "neighborhood/neighborhood/Hard/P017",
-    "ocean/ocean/Easy/P013",
-    "ocean/ocean/Hard/P009",
-    "office2/office2/Easy/P011",
-    "office2/office2/Hard/P010",
-    "office/office/Hard/P007",
-    "oldtown/oldtown/Easy/P007",
-    "oldtown/oldtown/Hard/P008",
-    "seasidetown/seasidetown/Easy/P009",
-    "seasonsforest/seasonsforest/Easy/P011",
-    "seasonsforest/seasonsforest/Hard/P006",
-    "seasonsforest_winter/seasonsforest_winter/Easy/P009",
-    "seasonsforest_winter/seasonsforest_winter/Hard/P018",
-    "soulcity/soulcity/Easy/P012",
-    "soulcity/soulcity/Hard/P009",
-    "westerndesert/westerndesert/Easy/P013",
-    "westerndesert/westerndesert/Hard/P007",
+    "abandonedfactory/Easy/P011",
+    "abandonedfactory/Hard/P011",
+    "abandonedfactory_night/Easy/P013",
+    "abandonedfactory_night/Hard/P014",
+    "amusement/Easy/P008",
+    "amusement/Hard/P007",
+    "carwelding/Easy/P007",
+    "endofworld/Easy/P009",
+    "gascola/Easy/P008",
+    "gascola/Hard/P009",
+    "hospital/Easy/P036",
+    "hospital/Hard/P049",
+    "japanesealley/Easy/P007",
+    "japanesealley/Hard/P005",
+    "neighborhood/Easy/P021",
+    "neighborhood/Hard/P017",
+    "ocean/Easy/P013",
+    "ocean/Hard/P009",
+    "office2/Easy/P011",
+    "office2/Hard/P010",
+    "office/Hard/P007",
+    "oldtown/Easy/P007",
+    "oldtown/Hard/P008",
+    "seasidetown/Easy/P009",
+    "seasonsforest/Easy/P011",
+    "seasonsforest/Hard/P006",
+    "seasonsforest_winter/Easy/P009",
+    "seasonsforest_winter/Hard/P018",
+    "soulcity/Easy/P012",
+    "soulcity/Hard/P009",
+    "westerndesert/Easy/P013",
+    "westerndesert/Hard/P007",
 ]
 
 
@@ -107,4 +107,63 @@ class TartanAir(RGBDDataset):
         depth[depth==np.inf] = 1.0
         return depth
 
+
+class TartanAir2(RGBDDataset):
+
+    # scale depths to balance rot & trans
+    DEPTH_SCALE = 5.0
+
+    def __init__(self, mode='training', **kwargs):
+        self.mode = mode
+        self.n_frames = 2
+        super(TartanAir2, self).__init__(name='TartanAir2', **kwargs)
+
+    @staticmethod 
+    def is_test_scene(scene):
+        # print(scene, any(x in scene for x in test_split))
+        return any(x in scene for x in test_split)
+
+    def _build_dataset(self):
+        from tqdm import tqdm
+        print("Building TartanAir2 dataset")
+
+        scene_info = {}
+        scenes = sorted(glob.glob(osp.join(self.root, 'TartanAir2', '*', '*', '*')))
+        for scene in tqdm(sorted(scenes)):
+            images = sorted(glob.glob(osp.join(scene, 'image_lcam_front/*.png')))
+            depths = sorted(glob.glob(osp.join(scene, 'depth_lcam_front/*.png')))
+
+            if len(images) != len(depths):
+                continue
+            
+            poses = np.loadtxt(osp.join(scene, 'pose_lcam_front.txt'), delimiter=' ')
+            poses = poses[:, [1, 2, 0, 4, 5, 3, 6]]
+            poses[:,:3] /= TartanAir2.DEPTH_SCALE
+            intrinsics = [TartanAir2.calib_read()] * len(images)
+
+            # graph of co-visible frames based on flow
+            graph = self.build_frame_graph(poses, depths, intrinsics)
+
+            scene = '/'.join(scene.split('/'))
+            scene_info[scene] = {'images': images, 'depths': depths, 
+                'poses': poses, 'intrinsics': intrinsics, 'graph': graph}
+
+        return scene_info
+
+    @staticmethod
+    def calib_read():
+        return np.array([320.0, 320.0, 320.0, 320.0])
+
+    @staticmethod
+    def image_read(image_file):
+        return cv2.imread(image_file)
+
+    @staticmethod
+    def depth_read(depthpath):
+        depth_rgba = cv2.imread(depthpath, cv2.IMREAD_UNCHANGED)
+        depth = depth_rgba.view("<f4")
+        depth = np.squeeze(depth, axis=-1) / TartanAir2.DEPTH_SCALE
+        depth[depth==np.nan] = 1.0
+        depth[depth==np.inf] = 1.0
+        return depth
 

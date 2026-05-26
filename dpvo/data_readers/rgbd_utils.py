@@ -4,6 +4,7 @@ import os.path as osp
 import torch
 from ..lietorch import SE3
 
+from ..projective_ops import induced_flow
 from scipy.spatial.transform import Rotation
 
 def parse_list(filepath, skiprows=0):
@@ -120,8 +121,8 @@ def compute_distance_matrix_flow(poses, disps, intrinsics):
 
     s = 2048
     for i in range(0, ii.shape[0], s):
-        flow1, val1 = pops.induced_flow(poses, disps, intrinsics, ii[i:i+s], jj[i:i+s])
-        flow2, val2 = pops.induced_flow(poses, disps, intrinsics, jj[i:i+s], ii[i:i+s])
+        flow1, val1 = induced_flow(poses, disps, intrinsics, ii[i:i+s], jj[i:i+s]) # flow ii -> jj
+        flow2, val2 = induced_flow(poses, disps, intrinsics, jj[i:i+s], ii[i:i+s]) # flow jj -> ii
         
         flow = torch.stack([flow1, flow2], dim=2)
         val = torch.stack([val1, val2], dim=2)
@@ -160,10 +161,10 @@ def compute_distance_matrix_flow2(poses, disps, intrinsics, beta=0.4):
 
     s = 2048
     for i in range(0, ii.shape[0], s):
-        flow1a, val1a = pops.induced_flow(poses, disps, intrinsics, ii[i:i+s], jj[i:i+s], tonly=True)
-        flow1b, val1b = pops.induced_flow(poses, disps, intrinsics, ii[i:i+s], jj[i:i+s])
-        flow2a, val2a = pops.induced_flow(poses, disps, intrinsics, jj[i:i+s], ii[i:i+s], tonly=True)
-        flow2b, val2b = pops.induced_flow(poses, disps, intrinsics, ii[i:i+s], jj[i:i+s])
+        flow1a, val1a = induced_flow(poses, disps, intrinsics, ii[i:i+s], jj[i:i+s], tonly=True)
+        flow1b, val1b = induced_flow(poses, disps, intrinsics, ii[i:i+s], jj[i:i+s])
+        flow2a, val2a = induced_flow(poses, disps, intrinsics, jj[i:i+s], ii[i:i+s], tonly=True)
+        flow2b, val2b = induced_flow(poses, disps, intrinsics, ii[i:i+s], jj[i:i+s])
 
         flow1 = flow1a + beta * flow1b
         val1 = val1a * val2b

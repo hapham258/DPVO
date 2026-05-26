@@ -157,11 +157,7 @@ figures/*.pdf
 
 rsync*
 models/*
-datasets/TartanAir.pickle
-datasets/TartanAir
-datasets/TartanAir2
-datasets/TartanGround
-datasets/mono
+datasets/
 TartanAirResults
 thirdparty/*
 

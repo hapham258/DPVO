@@ -2,7 +2,8 @@
 
 mkdir -p datasets/TartanAir
 
-DATA_ROOT=/media/vmo/KINGSTON/SLAM_Datasets/tartan_air
+# DATA_ROOT=/media/vmo/KINGSTON/SLAM_Datasets/tartan_air
+DATA_ROOT=/media/vmo/TRAINING_DATA/Tartan_Air
 
 for scene in "$DATA_ROOT"/*; do
     name=$(basename "$scene")

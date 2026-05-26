@@ -123,16 +123,29 @@ def evaluate(config, net, save_str, split="validation", trials=1, plot=False, sa
             all_results.append(ate_score)
             results[scene].append(ate_score)
 
+            # Save results
+            scene_name = '_'.join(
+                subpart.capitalize()
+                for part in scene.split('/')
+                for subpart in part.split('_')
+            ) if split == 'validation' else scene
             if plot:
-                scene_name = '_'.join(scene.split('/')[1:]).title() if split == 'validation' else scene
                 Path("trajectory_plots").mkdir(exist_ok=True)
-                plot_trajectory(traj_est, traj_ref, f"TartanAir {scene_name.replace('_', ' ')} Trial #{j+1} (ATE: {ate_score:.03f})",
-                                f"trajectory_plots/TartanAir_{scene_name}_Trial{j+1:02d}.pdf", align=True, correct_scale=True)
+                plot_trajectory(
+                    traj_est,
+                    traj_ref,
+                    f"TartanAir {scene_name.replace('_', ' ')} Trial #{j+1} (ATE: {ate_score:.03f})",
+                    f"trajectory_plots/TartanAir_{scene_name}_Trial{j+1:02d}.pdf",
+                    align=True,
+                    correct_scale=True,
+                )
 
             if save:
                 Path("saved_trajectories").mkdir(exist_ok=True)
-                file_interface.write_tum_trajectory_file(f"saved_trajectories/TartanAir_{scene_name}_Trial{j+1:02d}.txt", traj_est)
-
+                file_interface.write_tum_trajectory_file(
+                    f"saved_trajectories/TartanAir_{scene_name}_Trial{j+1:02d}.txt",
+                    traj_est,
+                )
         print(scene, sorted(results[scene]))
 
     results_dict = dict([("Tartan/{}".format(k), np.median(v)) for (k, v) in results.items()])

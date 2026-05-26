@@ -1,7 +1,17 @@
+import argparse
+import os
 import pickle
 from pprint import pprint
 
-pkl_path = "datasets/TartanAir.pickle"
+parser = argparse.ArgumentParser(description="Inspect pickle structure")
+parser.add_argument(
+    "pkl_path",
+    type=str,
+    help="Path to pickle file",
+)
+args = parser.parse_args()
+
+pkl_path = args.pkl_path
 
 with open(pkl_path, "rb") as f:
     obj = pickle.load(f)
@@ -26,10 +36,18 @@ print("\nscene_info type:", type(scene_info))
 if isinstance(scene_info, dict):
     print("Number of scenes:", len(scene_info))
 
+    # save all scene names
+    scene_names = sorted(scene_info.keys())
+    out_path = os.path.splitext(pkl_path)[0] + "_scene_names.txt"
+    with open(out_path, "w") as f:
+        for name in scene_names:
+            f.write(name + "\n")
+    print(f"\nSaved {len(scene_names)} scene names to:")
+    print(out_path)
+
     # first few scene names
-    scene_names = list(scene_info.keys())[:3]
     print("\nExample scene names:")
-    pprint(scene_names)
+    pprint(scene_names[:3])
 
     # inspect one scene
     first_scene = scene_names[0]

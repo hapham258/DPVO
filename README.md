@@ -25,11 +25,13 @@ python demo.py --imagedir=$SLAM_TESTINGS_PATH/zedx_mini/14/mav0/cam0/data/ --cal
 Run training:
 ```
 // On server
-python train.py --steps=240000 --lr=0.00008 --name=demo_train
+export TRAINING_RUN=demo_train
+python train.py --steps=240000 --lr=0.00008 --name=$TRAINING_RUN            # For non-weighted version
+python train.py --steps=240000 --lr=0.0004 --name=$TRAINING_RUN --wtd_obj   # For weighted version
 
 // On PC
 export OUTPUTS_PATH=$HOME/Desktop/dpvo_stuff
-export TRAINING_OUTPUTS_PATH=$OUTPUTS_PATH/demo_train/train_res
+export TRAINING_OUTPUTS_PATH=$OUTPUTS_PATH/TrainingRuns/$TRAINING_RUN/train_res
 mkdir -p $TRAINING_OUTPUTS_PATH
 export SERVER_REPO_PATH=/mnt/data/hapq/DPVO
 scp -r <server_alias>:$SERVER_REPO_PATH/checkpoints <server_alias>:$SERVER_REPO_PATH/TartanAirResults $TRAINING_OUTPUTS_PATH
@@ -37,16 +39,17 @@ scp -r <server_alias>:$SERVER_REPO_PATH/checkpoints <server_alias>:$SERVER_REPO_
 Run evaluation:
 ```
 // On PC
-python postprocess/select_checkpoint.py --results_dir=$TRAINING_OUTPUTS_PATH/TartanAirResults # Suppose demo_train_240000.pth is selected
+python postprocess/select_checkpoint.py --results_dir=$TRAINING_OUTPUTS_PATH/TartanAirResults
+export TRAINING_CHECKPOINT=demo_train_240000
 
 // On server
-python evaluate_tartan.py --trials=5 --split=validation --plot --save_trajectory --weights=checkpoints/demo_train_240000.pth
-./collect_tartan_gt.sh /media/vmo/KINGSTON/SLAM_Datasets/tartan_air eval_gt_trajs
+python evaluate_tartan.py --trials=5 --split=validation --plot --save_trajectory --weights=checkpoints/${TRAINING_CHECKPOINT}.pth
+./collect_tartan_gt.sh /media/vmo/TRAINING_DATA/Tartan_Air eval_gt_trajs
 
 // On PC
-export EVAL_OUTPUTS_PATH=$OUTPUTS_PATH/demo_train/eval_res
-mkdir -p $EVAL_OUTPUTS_PATH/demo_train_240000
-scp -r <server_alias>:$SERVER_REPO_PATH/saved_trajectories <server_alias>:$SERVER_REPO_PATH/trajectory_plots $EVAL_OUTPUTS_PATH/demo_train_240000
+export EVAL_OUTPUTS_PATH=$OUTPUTS_PATH/TrainingRuns/$TRAINING_RUN/eval_res
+mkdir -p $EVAL_OUTPUTS_PATH/$TRAINING_CHECKPOINT
+scp -r <server_alias>:$SERVER_REPO_PATH/saved_trajectories <server_alias>:$SERVER_REPO_PATH/trajectory_plots $EVAL_OUTPUTS_PATH/$TRAINING_CHECKPOINT
 scp -r <server_alias>:$SERVER_REPO_PATH/eval_gt_trajs $OUTPUTS_PATH
 python postprocess/fix_tartan_gt.py --input_dir=$OUTPUTS_PATH/eval_gt_trajs --output_dir=$OUTPUTS_PATH/eval_gt_trajs_fixed
 python postprocess/plot_auc_curve.py
@@ -54,12 +57,12 @@ python postprocess/plot_auc_curve.py
 Run testing:
 ```
 // On server
-python evaluate_tartan.py --trials=5 --split=test --plot --save_trajectory --weights=checkpoints/demo_train_240000.pth
+python evaluate_tartan.py --trials=5 --split=test --plot --save_trajectory --weights=checkpoints/${TRAINING_CHECKPOINT}.pth
 
 // On PC
-export TESTING_OUTPUTS_PATH=$OUTPUTS_PATH/demo_train/test_res
-mkdir -p $TESTING_OUTPUTS_PATH/demo_train_240000
-scp -r <server_alias>:$SERVER_REPO_PATH/saved_trajectories <server_alias>:$SERVER_REPO_PATH/trajectory_plots $TESTING_OUTPUTS_PATH/demo_train_240000
+export TESTING_OUTPUTS_PATH=$OUTPUTS_PATH/TrainingRuns/$TRAINING_RUN/test_res
+mkdir -p $TESTING_OUTPUTS_PATH/$TRAINING_CHECKPOINT
+scp -r <server_alias>:$SERVER_REPO_PATH/saved_trajectories <server_alias>:$SERVER_REPO_PATH/trajectory_plots $TESTING_OUTPUTS_PATH/$TRAINING_CHECKPOINT
 python postprocess/fix_tartan_gt.py --input_dir=$OUTPUTS_PATH/testing_gt_trajs --output_dir=$OUTPUTS_PATH/testing_gt_trajs_fixed
 ```
 

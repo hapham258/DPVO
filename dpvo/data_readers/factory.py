@@ -4,7 +4,7 @@ import os
 import os.path as osp
 
 # RGBD-Dataset
-from .tartan import TartanAir
+from .tartan import TartanAir, TartanAir2
 
 def dataset_factory(dataset_list, **kwargs):
     """ create a combined dataset """
@@ -12,7 +12,8 @@ def dataset_factory(dataset_list, **kwargs):
     from torch.utils.data import ConcatDataset
 
     dataset_map = { 
-        'tartan': (TartanAir, ),
+        'TartanAir': (TartanAir, ),
+        'TartanAir2': (TartanAir2, ),
     }
 
     db_list = []
