@@ -98,7 +98,8 @@ def train(args):
 
         if args.resume_train:
             optimizer.load_state_dict(torch.load(args.ckpt.replace('.pth', '_optim.pth')))
-            scheduler.load_state_dict(torch.load(args.ckpt.replace('.pth', '_sched.pth')))
+            if args.resume_scheduler:
+                scheduler.load_state_dict(torch.load(args.ckpt.replace('.pth', '_sched.pth')))
     else:
         start_epoch = 0
 
@@ -275,6 +276,7 @@ if __name__ == '__main__':
     parser.add_argument('--flow_weight', type=float, default=0.1)
     parser.add_argument('--save_dir', type=str, default='runs')
     parser.add_argument('--resume_train', action='store_true')
+    parser.add_argument('--resume_scheduler', action='store_true')
     parser.add_argument('--all_poses_loss', action='store_true')
     parser.add_argument('--all_flows_loss', action='store_false')
     parser.add_argument('--so_flag', action='store_true')
