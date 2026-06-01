@@ -71,7 +71,12 @@ def train(args):
     rank = 0
     seeding(0)
 
-    db = dataset_factory(['TartanAir', 'TartanAir2'], datapath="datasets", n_frames=args.n_frames)
+    db = dataset_factory(
+        args.dataset,
+        datapath="datasets",
+        n_frames=args.n_frames
+    )
+    print(f"Training on datasets: {args.dataset}")
     train_loader = DataLoader(db, batch_size=1, shuffle=True, num_workers=4)
 
     net = VONet()
@@ -281,6 +286,11 @@ if __name__ == '__main__':
     parser.add_argument('--all_flows_loss', action='store_false')
     parser.add_argument('--so_flag', action='store_true')
     parser.add_argument('--wtd_obj', action='store_true')
+    parser.add_argument('--dataset', nargs='+',
+        default=['TartanAir'],
+        choices=['TartanAir', 'TartanAir2'],
+        help='One or more datasets'
+    )
     args = parser.parse_args()
 
     train(args)
